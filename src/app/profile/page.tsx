@@ -1,59 +1,64 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabaseClient";
-import { 
-  User, 
-  Mail, 
-  Lock, 
-  Award, 
-  BookOpen, 
-  Calendar, 
-  LogOut, 
-  CheckCircle2, 
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "../../lib/supabaseClient"; 
+import {
+  Lock,
+  Award,
+  BookOpen,
+  Calendar,
+  LogOut,
+  CheckCircle2,
   Activity,
   Flame,
   KeyRound
 } from "lucide-react";
 
 export default function ProfilePage() {
+  const router = useRouter();
+
+  // 1. Core State Management (With generic types to satisfy TypeScript)
+  const [user, setUser] = useState<any>(null);
   const [session, setSession] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [isLogin, setIsLogin] = useState<boolean>(true);
 
-  // Auth Form State
-  const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [username, setUsername] = useState("");
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [authSuccess, setAuthSuccess] = useState<string | null>(null);
-  const [formLoading, setFormLoading] = useState(false);
-
-  // 1. Fetch Auth State & Profile
+  // 2. Auth Security Gate: Runs once on page mount
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      } else {
-        setLoading(false);
+    const checkUser = async () => {
+      try {
+        const { data: { user: activeUser } } = await supabase.auth.getUser();
+        if (!activeUser) {
+          router.push("/login"); // Route unauthenticated traffic away
+        } else {
+          setUser(activeUser);
+          await fetchProfile(activeUser.id); // Fetch accompanying user records
+        }
+      } catch (err) {
+        console.error("Auth verification error:", err);
+        router.push("/login");
       }
-    });
+    };
+    checkUser();
+  }, [router]);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      } else {
-        setProfile(null);
-        setLoading(false);
+  // 3. Auth Listener: Tracks credential token mutations
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, currentSession) => {
+        setSession(currentSession);
+        if (currentSession?.user) {
+          setUser(currentSession.user);
+        }
       }
-    });
+    );
 
     return () => subscription.unsubscribe();
   }, []);
 
+  // 4. Data Sync: Read matching Row from database 'profiles' table
   const fetchProfile = async (userId: string) => {
     setLoading(true);
     try {
@@ -67,336 +72,113 @@ export default function ProfilePage() {
         setProfile(data);
       }
     } catch (err) {
-      console.error("Error fetching user profile:", err);
+      console.error("Error connecting to profiles table:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  // 2. Register/Login Submit
-  const handleAuthSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError(null);
-    setAuthSuccess(null);
-    setFormLoading(true);
-
+  // 5. Action Handler: Clean Sign Out Sequence
+  const handleLogout = async () => {
     try {
-      if (isLogin) {
-        // Sign In
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (error) throw error;
-        setAuthSuccess("Logged in successfully!");
-      } else {
-        // Sign Up
-        if (!username.trim()) {
-          throw new Error("Username is required.");
-        }
-        
-        // Check standard signup options. 
-        // metadata is sent to auth trigger handles profile inserts
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              username: username.trim(),
-            },
-          },
-        });
-        if (error) throw error;
-        setAuthSuccess("Account created! Check your email for verification");
-      }
-    } catch (err: any) {
-      setAuthError(err.message || "An authentication error occurred.");
-    } finally {
-      setFormLoading(false);
+      await supabase.auth.signOut();
+      router.push("/login");
+    } catch (err) {
+      console.error("Logout execution failed:", err);
     }
   };
 
-  const handleLogout = async () => {
-    setLoading(true);
-    await supabase.auth.signOut();
-    setSession(null);
-    setProfile(null);
-    setLoading(false);
-  };
-
-  // Interactive student metrics (mock stats linked to profile)
-  const studentStats = {
-    lecturesCompleted: 14,
-    totalLectures: 22,
-    studyHours: "19.8 hrs",
-    xpPoints: 1240,
-    academicStreak: 5,
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* Page Title */}
-      <div>
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-          <User className="w-6 h-6 text-indigo-400" />
-          My Profile
-        </h1>
-        <p className="text-xs text-slate-400 mt-1">
-          Manage your account credentials, view study metrics, and accomplishments.
-        </p>
+  // 6. Visual Fallback: Prevents layout flashing while loading states resolve
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0f172a] text-white">
+        <div className="text-center space-y-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent mx-auto"></div>
+          <p className="text-slate-400 text-sm font-medium">Loading your dashboard...</p>
+        </div>
       </div>
+    );
+  }
 
-      {loading ? (
-        <div className="text-center py-20 text-slate-400 text-xs">
-          Loading profile details...
+  // 7. Core User Interface Layout
+  return (
+    <div className="min-h-screen bg-[#0f172a] text-slate-100 font-sans">
+      {/* Navbar / Top Header Header */}
+      <header className="border-b border-slate-800 bg-[#0f172a]/80 backdrop-blur sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="h-9 w-9 rounded-xl bg-indigo-600 flex items-center justify-center font-black text-white shadow-lg shadow-indigo-500/20">
+            T
+          </div>
+          <span className="text-lg font-bold tracking-tight bg-gradient-to-r select-none from-indigo-400 to-violet-400 bg-clip-text text-transparent">
+            TAKSHA v2.0
+          </span>
         </div>
-      ) : session ? (
-        /* ================= AUTHENTICATED STATE ================= */
-        <div className="space-y-6 animate-in fade-in duration-300">
-          
-          {/* User Hero Badge */}
-          <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/90 border border-slate-800 rounded-3xl p-5 relative overflow-hidden shadow-xl">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl" />
-            
-            <div className="flex items-center gap-4 relative z-10">
-              <div className="w-16 h-16 rounded-2xl bg-indigo-500 text-white flex items-center justify-center font-black text-2xl shadow-lg shadow-indigo-500/20">
-                {(profile?.username || session.user.email)?.substring(0, 2).toUpperCase()}
-              </div>
-              <div>
-                <span className="text-xs text-indigo-400 font-semibold block mb-1">
-                  Welcome back, Student!
-                </span>
-                <h2 className="text-lg font-bold text-white leading-none">
-                  u/{profile?.username || session.user.email.split("@")[0]}
-                </h2>
-                <p className="text-xs text-slate-400 mt-1.5 flex items-center gap-1">
-                  <Mail className="w-3.5 h-3.5" />
-                  {session.user.email}
-                </p>
-              </div>
-            </div>
+        
+        {/* Dynamic Action Sign Out Button */}
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-600 hover:text-white transition-all duration-200 shadow-sm"
+        >
+          <LogOut className="h-4 w-4" />
+          <span>Sign Out</span>
+        </button>
+      </header>
 
-            {/* Profile Meta Stats */}
-            <div className="grid grid-cols-2 gap-3 mt-6 border-t border-slate-850 pt-5 text-xs text-slate-400">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-indigo-400" />
-                <span>Joined {new Date(session.user.created_at).toLocaleDateString()}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <KeyRound className="w-4 h-4 text-emerald-400" />
-                <span>Online Database Synced</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Student Progress Metrics Dashboard */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider text-slate-300">
-              Academic Dashboard
-            </h3>
-            
-            <div className="grid grid-cols-2 gap-3.5">
-              <div className="bg-slate-800/20 border border-slate-800/80 p-4 rounded-2xl flex items-start gap-3">
-                <BookOpen className="w-5 h-5 text-indigo-400 mt-0.5" />
-                <div>
-                  <span className="text-[10px] text-slate-400 block font-semibold uppercase">Lectures Watched</span>
-                  <span className="text-base font-bold text-slate-100 block mt-0.5">
-                    {studentStats.lecturesCompleted} / {studentStats.totalLectures}
-                  </span>
-                  <span className="text-[9px] text-indigo-400 font-semibold block mt-1">63% Completed</span>
-                </div>
-              </div>
-
-              <div className="bg-slate-800/20 border border-slate-800/80 p-4 rounded-2xl flex items-start gap-3">
-                <Activity className="w-5 h-5 text-emerald-400 mt-0.5" />
-                <div>
-                  <span className="text-[10px] text-slate-400 block font-semibold uppercase">Study Hours</span>
-                  <span className="text-base font-bold text-slate-100 block mt-0.5">
-                    {studentStats.studyHours}
-                  </span>
-                  <span className="text-[9px] text-emerald-400 font-semibold block mt-1">+2.4h this week</span>
-                </div>
-              </div>
-
-              <div className="bg-slate-800/20 border border-slate-800/80 p-4 rounded-2xl flex items-start gap-3">
-                <Flame className="w-5 h-5 text-amber-400 mt-0.5" />
-                <div>
-                  <span className="text-[10px] text-slate-400 block font-semibold uppercase">Daily Streak</span>
-                  <span className="text-base font-bold text-slate-100 block mt-0.5">
-                    {studentStats.academicStreak} Days
-                  </span>
-                  <span className="text-[9px] text-amber-400 font-semibold block mt-1">Keep it up!</span>
-                </div>
-              </div>
-
-              <div className="bg-slate-800/20 border border-slate-800/80 p-4 rounded-2xl flex items-start gap-3">
-                <Award className="w-5 h-5 text-violet-400 mt-0.5" />
-                <div>
-                  <span className="text-[10px] text-slate-400 block font-semibold uppercase">Scholar XP</span>
-                  <span className="text-base font-bold text-slate-100 block mt-0.5">
-                    {studentStats.xpPoints} XP
-                  </span>
-                  <span className="text-[9px] text-violet-400 font-semibold block mt-1">160 XP to level up</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Academic Accomplishments list */}
-          <div className="bg-slate-800/10 border border-slate-800/60 rounded-3xl p-4 space-y-3">
-            <h3 className="text-xs font-bold text-white uppercase tracking-wider">Unlocked Badges</h3>
-            <div className="space-y-2">
-              <div className="flex items-center gap-3 p-2 bg-slate-900/30 rounded-xl border border-slate-850">
-                <CheckCircle2 className="w-4 h-4 text-indigo-400 flex-shrink-0" />
-                <div>
-                  <span className="text-xs font-semibold text-slate-200 block">Hello World Compiler</span>
-                  <span className="text-[9px] text-slate-400">Completed 1st lecture and program compile.</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 p-2 bg-slate-900/30 rounded-xl border border-slate-850">
-                <CheckCircle2 className="w-4 h-4 text-indigo-400 flex-shrink-0" />
-                <div>
-                  <span className="text-xs font-semibold text-slate-200 block">Community Scholar</span>
-                  <span className="text-[9px] text-slate-400">Created a post and commented in the P2P Forum.</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Logout Button */}
-          <button
-            onClick={handleLogout}
-            className="w-full bg-slate-800/60 hover:bg-red-500/10 border border-slate-750 hover:border-red-500/30 text-slate-300 hover:text-red-400 py-3.5 rounded-2xl flex items-center justify-center gap-2 text-xs font-semibold active:scale-[0.98] transition-all cursor-pointer"
-          >
-            <LogOut className="w-4.5 h-4.5" />
-            <span>Log Out Account</span>
-          </button>
-
-        </div>
-      ) : (
-        /* ================= UNAUTHENTICATED STATE (LOGIN/SIGNUP) ================= */
-        <div className="bg-slate-800/20 border border-slate-800/60 p-5 rounded-3xl space-y-6 animate-in fade-in duration-300 shadow-md">
-          {/* Header toggler */}
-          <div className="flex bg-slate-900/60 p-1.5 rounded-2xl border border-slate-850">
-            <button
-              onClick={() => {
-                setIsLogin(true);
-                setAuthError(null);
-                setAuthSuccess(null);
-              }}
-              className={`flex-1 text-center py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                isLogin 
-                  ? "bg-indigo-500 text-white shadow-md shadow-indigo-500/10" 
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              Sign In
-            </button>
-            <button
-              onClick={() => {
-                setIsLogin(false);
-                setAuthError(null);
-                setAuthSuccess(null);
-              }}
-              className={`flex-1 text-center py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                !isLogin 
-                  ? "bg-indigo-500 text-white shadow-md shadow-indigo-500/10" 
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              Sign Up
-            </button>
-          </div>
-
-          {/* Form details instructions */}
-          <div className="text-center px-4 space-y-1.5">
-            <h2 className="text-base font-bold text-white">
-              {isLogin ? "Welcome Back Student" : "Create Student Account"}
-            </h2>
-            <p className="text-[10px] text-slate-400 leading-normal">
-              {isLogin 
-                ? "Enter your credentials to access study progress metrics." 
-                : "Register with Supabase to synch upvote posts & write comments."}
+      {/* Main Structural Layout Wrap */}
+      <main className="max-w-7xl mx-auto p-6 md:p-8 space-y-8">
+        
+        {/* Welcome Dashboard Profile Block */}
+        <div className="relative rounded-2xl overflow-hidden bg-gradient-to-r from-indigo-900/40 via-slate-900 to-slate-900 border border-slate-800 p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="space-y-2 text-center md:text-left">
+            <span className="px-3 py-1 text-xs font-semibold rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+              Level {profile?.level || "1"} Student
+            </span>
+            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-white">
+              Welcome back, <span className="text-indigo-400">{profile?.full_name || user?.email?.split('@')[0]}</span>!
+            </h1>
+            <p className="text-slate-400 text-sm max-w-xl">
+              Account Registered: <span className="text-slate-300 font-medium">{user?.email}</span>
             </p>
           </div>
-
-          {/* Error and Success Alerts */}
-          {authError && (
-            <div className="bg-red-500/10 border border-red-500/20 text-red-300 p-3 rounded-xl text-xs text-center font-medium">
-              {authError}
-            </div>
-          )}
-          {authSuccess && (
-            <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 p-3 rounded-xl text-xs text-center font-medium">
-              {authSuccess}
-            </div>
-          )}
-
-          {/* Auth form inputs */}
-          <form onSubmit={handleAuthSubmit} className="space-y-4">
-            {!isLogin && (
-              <div className="space-y-1.5">
-                <label className="text-[10px] text-slate-400 font-semibold uppercase block">Username</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                    <User className="w-4 h-4" />
-                  </div>
-                  <input
-                    type="text"
-                    required
-                    placeholder="student_42"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-1.5">
-              <label className="text-[10px] text-slate-400 font-semibold uppercase block">Email Address</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                  <Mail className="w-4 h-4" />
-                </div>
-                <input
-                  type="email"
-                  required
-                  placeholder="name@university.edu"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-[10px] text-slate-400 font-semibold uppercase block">Password</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-                  <Lock className="w-4 h-4" />
-                </div>
-                <input
-                  type="password"
-                  required
-                  placeholder="Min 6 characters"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={formLoading}
-              className="w-full bg-indigo-500 hover:bg-indigo-600 disabled:bg-indigo-500/50 text-white py-3.5 rounded-2xl text-xs font-bold shadow-lg shadow-indigo-500/10 hover:shadow-indigo-500/20 active:scale-[0.98] transition-all cursor-pointer mt-2"
-            >
-              {formLoading ? "Processing..." : isLogin ? "Authenticate" : "Register Credentials"}
-            </button>
-          </form>
         </div>
-      )}
+
+        {/* Statistical Metas Panel */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Module Metric 1: Study Tracker */}
+          <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 hover:border-indigo-500/30 transition-all duration-300 group space-y-4">
+            <div className="h-12 w-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300">
+              <Activity className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-slate-400">Total Study Time</p>
+              <h3 className="text-3xl font-bold text-white mt-1">{profile?.study_time || "0"} hours</h3>
+            </div>
+          </div>
+
+          {/* Module Metric 2: Attendance Streak */}
+          <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 hover:border-violet-500/30 transition-all duration-300 group space-y-4">
+            <div className="h-12 w-12 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 group-hover:bg-violet-600 group-hover:text-white transition-all duration-300">
+              <Flame className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-slate-400">Daily Streak</p>
+              <h3 className="text-3xl font-bold text-white mt-1">{profile?.streak || "0"} Days</h3>
+            </div>
+          </div>
+
+          {/* Module Metric 3: Goal Evaluation Progress */}
+          <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 hover:border-emerald-500/30 transition-all duration-300 group space-y-4 sm:col-span-2 lg:col-span-1">
+            <div className="h-12 w-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:bg-emerald-600 group-hover:text-white transition-all duration-300">
+              <Award className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-slate-400">Completed Modules</p>
+              <h3 className="text-3xl font-bold text-white mt-1">{profile?.completed_modules || "0"} Tasks</h3>
+            </div>
+          </div>
+        </div>
+
+      </main>
     </div>
   );
 }

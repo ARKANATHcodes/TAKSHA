@@ -18,7 +18,9 @@ import {
   Moon,
   User,
   Target,
-  MapPin
+  MapPin,
+  GraduationCap,
+  FolderUp
 } from "lucide-react";
 
 export default function ProfilePage() {
@@ -111,7 +113,7 @@ export default function ProfilePage() {
       if (!error && data) {
         setProfile(data);
         
-        // 🚨 Check if onboarding data is missing
+        // Check if onboarding data is missing
         if (!data.username || !data.preparation_for) {
           setIsOnboarding(true);
           setFormData({
@@ -277,10 +279,18 @@ export default function ProfilePage() {
           </div>
 
           {!isOnboarding && (
-            <nav className={`hidden md:flex items-center gap-4 border-l pl-6 ${isDark ? "border-slate-800" : "border-slate-200"}`}>
+            <nav className={`hidden md:flex items-center gap-5 border-l pl-6 ${isDark ? "border-slate-800" : "border-slate-200"}`}>
               <button onClick={() => window.location.href = "/profile"} className="text-sm font-semibold text-indigo-500">Dashboard</button>
               <button onClick={() => window.location.href = "/quiz"} className={`text-sm font-medium transition-colors ${isDark ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-900"}`}>Quiz Hub</button>
               <button onClick={() => window.location.href = "/formulas"} className={`text-sm font-medium transition-colors ${isDark ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-900"}`}>Cheat Sheets</button>
+              
+              {/* 🛠️ ADDED: AI Teacher Route Link */}
+              <button 
+                onClick={() => window.location.href = "/teacher"} 
+                className={`text-sm font-medium flex items-center gap-1.5 transition-colors ${isDark ? "text-slate-400 hover:text-violet-400" : "text-slate-500 hover:text-violet-600"}`}
+              >
+                <GraduationCap className="h-4 w-4" /> AI Teacher
+              </button>
             </nav>
           )}
         </div>
@@ -309,7 +319,7 @@ export default function ProfilePage() {
       <main className="max-w-7xl mx-auto p-6 md:p-8 space-y-8">
         
         {isOnboarding ? (
-          /* 🚨 INTERACTIVE ONBOARDING DATA COLLECTION FORM */
+          /* ONBOARDING DATA COLLECTION FORM */
           <div className="max-w-md mx-auto pt-6">
             <div className={`border p-6 md:p-8 rounded-2xl space-y-6 shadow-xl ${isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"}`}>
               <div className="space-y-2 text-center">
@@ -318,7 +328,6 @@ export default function ProfilePage() {
               </div>
 
               <form onSubmit={handleOnboardingSubmit} className="space-y-4">
-                {/* Username Input */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5"><User className="h-3.5 w-3.5" /> Chosen Username</label>
                   <input
@@ -331,7 +340,6 @@ export default function ProfilePage() {
                   />
                 </div>
 
-                {/* Preparation Target Input */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5"><Target className="h-3.5 w-3.5" /> What are you preparing for?</label>
                   <input
@@ -339,12 +347,11 @@ export default function ProfilePage() {
                     required
                     value={formData.preparation_for}
                     onChange={(e) => setFormData({ ...formData, preparation_for: e.target.value })}
-                    placeholder="e.g., GATE Exam, University Engineering, Physics Lab"
+                    placeholder="e.g., GATE Exam, University Engineering"
                     className={`w-full rounded-xl px-4 py-3 text-sm outline-none border ${isDark ? "bg-slate-950 border-slate-800 text-slate-100" : "bg-slate-50 border-slate-200 text-slate-800"}`}
                   />
                 </div>
 
-                {/* Location Layout Grid */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> State</label>
@@ -352,7 +359,7 @@ export default function ProfilePage() {
                       type="text"
                       value={formData.state}
                       onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                      placeholder="e.g., MH, DL, KA"
+                      placeholder="e.g., MH, DL"
                       className={`w-full rounded-xl px-4 py-3 text-sm outline-none border ${isDark ? "bg-slate-950 border-slate-800 text-slate-100" : "bg-slate-50 border-slate-200 text-slate-800"}`}
                     />
                   </div>
@@ -381,7 +388,7 @@ export default function ProfilePage() {
         ) : (
           /* STANDARD DASHBOARD VIEW SECTION */
           <>
-            {/* Welcome Block Header with Meta Tags */}
+            {/* Welcome Block Header with custom @username replacement */}
             <div className={`relative rounded-2xl overflow-hidden border p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 transition-colors ${
               isDark ? "bg-gradient-to-r from-indigo-900/40 via-slate-900 to-slate-900 border-slate-800" : "bg-white border-slate-200 shadow-sm"
             }`}>
@@ -394,8 +401,9 @@ export default function ProfilePage() {
                     Target: {profile?.preparation_for}
                   </span>
                 </div>
+                {/* 🛠️ UPDATED: Addressed by username dynamically */}
                 <h1 className={`text-3xl md:text-4xl font-extrabold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
-                  Welcome, <span className="text-indigo-500">@{profile?.username}</span>!
+                  Welcome, <span className="text-indigo-500">@{profile?.username || "student"}</span>!
                 </h1>
                 <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                   Location: <span className="font-semibold">{profile?.city || "Unknown"}, {profile?.state || "IN"}</span>
@@ -404,7 +412,7 @@ export default function ProfilePage() {
             </div>
 
             {/* QUICK LAUNCH HOTBAR CARDS */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <button 
                 onClick={() => window.location.href = "/quiz"}
                 className={`p-4 rounded-xl border text-left flex items-center justify-between group transition-all duration-200 ${
@@ -417,7 +425,7 @@ export default function ProfilePage() {
                   </div>
                   <div>
                     <h4 className={`text-sm font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Launch Quiz Hub</h4>
-                    <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>Test engineering & physics knowledge to level up.</p>
+                    <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>Test engineering & physics loops.</p>
                   </div>
                 </div>
                 <span className="text-slate-400 group-hover:text-indigo-500 transition-colors font-bold text-lg">→</span>
@@ -435,10 +443,29 @@ export default function ProfilePage() {
                   </div>
                   <div>
                     <h4 className={`text-sm font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Formula Cheat Sheets</h4>
-                    <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>Review hidden or active mathematical formulas.</p>
+                    <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>Review active physics formulations.</p>
                   </div>
                 </div>
                 <span className="text-slate-400 group-hover:text-violet-400 transition-colors font-bold text-lg">→</span>
+              </button>
+
+              {/* 🛠️ ADDED: Task Submission Portal Card */}
+              <button 
+                onClick={() => window.location.href = "/submission"}
+                className={`p-4 rounded-xl border text-left flex items-center justify-between group transition-all duration-200 ${
+                  isDark ? "border-slate-800 bg-slate-900/50 hover:bg-slate-900 hover:border-emerald-500/30" : "border-slate-200 bg-white hover:bg-slate-50 hover:border-emerald-500/30 shadow-sm"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-400 group-hover:bg-emerald-600 group-hover:text-white transition-all">
+                    <FolderUp className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h4 className={`text-sm font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Task Submission Form</h4>
+                    <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>Upload mandatory project files.</p>
+                  </div>
+                </div>
+                <span className="text-slate-400 group-hover:text-emerald-500 transition-colors font-bold text-lg">→</span>
               </button>
             </div>
 

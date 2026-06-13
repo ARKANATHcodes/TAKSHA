@@ -39,7 +39,7 @@ export default function LoginPage() {
         setError(signInError.message);
       } else {
         // Send user straight to the main dashboard upon success
-        router.push("/");
+        window.location.href = "/profile";
         router.refresh();
       }
     }

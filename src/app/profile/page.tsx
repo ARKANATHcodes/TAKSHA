@@ -13,25 +13,45 @@ import {
   Plus,
   CheckCircle,
   HelpCircle,
-  BookOpen
+  BookOpen,
+  Sun,
+  Moon
 } from "lucide-react";
 
 export default function ProfilePage() {
   const router = useRouter();
 
-  // 1. Core Authentication & Profile States
+  // Core Authentication & Profile States
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // 2. Feature States: Live Study Timer
+  // 🔥 Feature State: Global Theme Manager (Default to true/dark)
+  const [isDark, setIsDark] = useState<boolean>(true);
+
+  // Feature States: Live Study Timer
   const [isTiming, setIsTiming] = useState<boolean>(false);
   const [secondsElapsed, setSecondsElapsed] = useState<number>(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 3. Feature States: Local Task Manager
+  // Feature States: Local Task Manager
   const [tasks, setTasks] = useState<{ id: string; text: string }[]>([]);
   const [newTaskInput, setNewTaskInput] = useState<string>("");
+
+  // --- THEME LOAD ENGINE ---
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("taksha-theme");
+    if (savedTheme === "light") {
+      setIsDark(false);
+    }
+  }, []);
+
+  // Toggle Theme Function
+  const toggleTheme = () => {
+    const nextTheme = !isDark;
+    setIsDark(nextTheme);
+    localStorage.setItem("taksha-theme", nextTheme ? "dark" : "light");
+  };
 
   // --- HOOKS & AUTH GATE ---
   useEffect(() => {
@@ -65,7 +85,6 @@ export default function ProfilePage() {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [isTiming]);
-
 
   // --- DATABASE OPERATIONS ---
   const fetchProfile = async (userId: string) => {
@@ -174,20 +193,22 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0f172a] text-white">
+      <div className={`flex min-h-screen items-center justify-center ${isDark ? "bg-[#0f172a] text-white" : "bg-slate-50 text-slate-900"}`}>
         <div className="text-center space-y-4">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent mx-auto"></div>
-          <p className="text-slate-400 text-sm font-medium">Loading your dashboard...</p>
+          <p className={isDark ? "text-slate-400" : "text-slate-500"}>Loading your dashboard...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-slate-100 font-sans">
+    <div className={`min-h-screen font-sans transition-colors duration-200 ${isDark ? "bg-[#0f172a] text-slate-100" : "bg-slate-50 text-slate-800"}`}>
       
-      {/* HEADER WITH NEW INTERACTIVE NAVIGATION LINKS */}
-      <header className="border-b border-slate-800 bg-[#0f172a]/80 backdrop-blur sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
+      {/* HEADER WITH DYNAMIC BACKGROUND & THEME TOGGLE */}
+      <header className={`border-b sticky top-0 z-50 px-6 py-4 flex items-center justify-between backdrop-blur transition-colors ${
+        isDark ? "border-slate-800 bg-[#0f172a]/80" : "border-slate-200 bg-white/80"
+      }`}>
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => window.location.href = "/profile"}>
             <div className="h-9 w-9 rounded-xl bg-indigo-600 flex items-center justify-center font-black text-white shadow-lg shadow-indigo-500/20">
@@ -198,126 +219,160 @@ export default function ProfilePage() {
             </span>
           </div>
 
-          {/* New Navigation Group */}
-          <nav className="hidden md:flex items-center gap-4 border-l border-slate-800 pl-6">
-            <button onClick={() => window.location.href = "/profile"} className="text-sm font-semibold text-indigo-400">Dashboard</button>
-            <button onClick={() => window.location.href = "/quiz"} className="text-sm font-medium text-slate-400 hover:text-slate-200 transition-colors">Quiz Hub</button>
-            <button onClick={() => window.location.href = "/formulas"} className="text-sm font-medium text-slate-400 hover:text-slate-200 transition-colors">Cheat Sheets</button>
+          <nav className={`hidden md:flex items-center gap-4 border-l pl-6 ${isDark ? "border-slate-800" : "border-slate-200"}`}>
+            <button onClick={() => window.location.href = "/profile"} className="text-sm font-semibold text-indigo-500">Dashboard</button>
+            <button onClick={() => window.location.href = "/quiz"} className={`text-sm font-medium transition-colors ${isDark ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-900"}`}>Quiz Hub</button>
+            <button onClick={() => window.location.href = "/formulas"} className={`text-sm font-medium transition-colors ${isDark ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-900"}`}>Cheat Sheets</button>
           </nav>
         </div>
         
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-600 hover:text-white transition-all duration-200"
-        >
-          <LogOut className="h-4 w-4" />
-          <span>Sign Out</span>
-        </button>
+        <div className="flex items-center gap-3">
+          {/* 🔥 NEW THEME TOGGLE BUTTON */}
+          <button
+            onClick={toggleTheme}
+            className={`p-2.5 rounded-xl border transition-all duration-200 ${
+              isDark 
+                ? "bg-slate-900 border-slate-800 text-amber-400 hover:bg-slate-800" 
+                : "bg-white border-slate-200 text-violet-600 hover:bg-slate-100 shadow-sm"
+            }`}
+            title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          >
+            {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
+
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-600 hover:text-white transition-all duration-200"
+          >
+            <LogOut className="h-4 w-4" />
+            <span className="hidden sm:inline">Sign Out</span>
+          </button>
+        </div>
       </header>
 
       {/* Main Content Dashboard */}
       <main className="max-w-7xl mx-auto p-6 md:p-8 space-y-8">
         
         {/* Welcome Block */}
-        <div className="relative rounded-2xl overflow-hidden bg-gradient-to-r from-indigo-900/40 via-slate-900 to-slate-900 border border-slate-800 p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className={`relative rounded-2xl overflow-hidden border p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 transition-colors ${
+          isDark ? "bg-gradient-to-r from-indigo-900/40 via-slate-900 to-slate-900 border-slate-800" : "bg-white border-slate-200 shadow-sm"
+        }`}>
           <div className="space-y-2 text-center md:text-left">
             <span className="px-3 py-1 text-xs font-semibold rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
               Level {profile?.level || "1"} Student
             </span>
-            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-white">
-              Welcome back, <span className="text-indigo-400">{profile?.full_name || user?.email?.split('@')[0]}</span>!
+            <h1 className={`text-3xl md:text-4xl font-extrabold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
+              Welcome back, <span className="text-indigo-500">{profile?.full_name || user?.email?.split('@')[0]}</span>!
             </h1>
-            <p className="text-slate-400 text-sm">
-              Account: <span className="text-slate-300 font-medium">{user?.email}</span>
+            <p className={isDark ? "text-slate-400 text-sm" : "text-slate-500 text-sm"}>
+              Account: <span className={`font-medium ${isDark ? "text-slate-300" : "text-slate-700"}`}>{user?.email}</span>
             </p>
           </div>
         </div>
 
-        {/* NEW QUICK LAUNCH HOTBAR LINKS FOR MOBILE/DESKTOP */}
+        {/* QUICK LAUNCH HOTBAR CARDS */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <button 
             onClick={() => window.location.href = "/quiz"}
-            className="p-4 rounded-xl border border-slate-800 bg-slate-900/50 hover:bg-slate-900 text-left flex items-center justify-between group transition-all duration-200 hover:border-indigo-500/30"
+            className={`p-4 rounded-xl border text-left flex items-center justify-between group transition-all duration-200 ${
+              isDark ? "border-slate-800 bg-slate-900/50 hover:bg-slate-900 hover:border-indigo-500/30" : "border-slate-200 bg-white hover:bg-slate-50 hover:border-indigo-500/30 shadow-sm"
+            }`}
           >
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-lg bg-indigo-500/10 text-indigo-400 group-hover:bg-indigo-600 group-hover:text-white transition-all">
+              <div className="p-2.5 rounded-lg bg-indigo-500/10 text-indigo-500 group-hover:bg-indigo-600 group-hover:text-white transition-all">
                 <HelpCircle className="h-5 w-5" />
               </div>
               <div>
-                <h4 className="text-sm font-bold text-white">Launch Quiz Hub</h4>
-                <p className="text-xs text-slate-400">Test engineering & physics knowledge to level up.</p>
+                <h4 className={`text-sm font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Launch Quiz Hub</h4>
+                <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>Test engineering & physics knowledge to level up.</p>
               </div>
             </div>
-            <span className="text-slate-600 group-hover:text-indigo-400 transition-colors font-bold text-lg">→</span>
+            <span className="text-slate-400 group-hover:text-indigo-500 transition-colors font-bold text-lg">→</span>
           </button>
 
           <button 
             onClick={() => window.location.href = "/formulas"}
-            className="p-4 rounded-xl border border-slate-800 bg-slate-900/50 hover:bg-slate-900 text-left flex items-center justify-between group transition-all duration-200 hover:border-violet-500/30"
+            className={`p-4 rounded-xl border text-left flex items-center justify-between group transition-all duration-200 ${
+              isDark ? "border-slate-800 bg-slate-900/50 hover:bg-slate-900 hover:border-violet-500/30" : "border-slate-200 bg-white hover:bg-slate-50 hover:border-violet-500/30 shadow-sm"
+            }`}
           >
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-lg bg-violet-500/10 text-violet-400 group-hover:bg-violet-600 group-hover:text-white transition-all">
                 <BookOpen className="h-5 w-5" />
               </div>
               <div>
-                <h4 className="text-sm font-bold text-white">Formula Cheat Sheets</h4>
-                <p className="text-xs text-slate-400">Review hidden or active mathematical formulas.</p>
+                <h4 className={`text-sm font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Formula Cheat Sheets</h4>
+                <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>Review hidden or active mathematical formulas.</p>
               </div>
             </div>
-            <span className="text-slate-600 group-hover:text-violet-400 transition-colors font-bold text-lg">→</span>
+            <span className="text-slate-400 group-hover:text-violet-400 transition-colors font-bold text-lg">→</span>
           </button>
         </div>
 
         {/* Live Metrics Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 hover:border-indigo-500/30 transition-all duration-300 space-y-4">
-            <div className="h-12 w-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+          {/* Card 1 */}
+          <div className={`p-6 rounded-2xl border transition-all duration-300 space-y-4 ${
+            isDark ? "bg-slate-900 border-slate-800 hover:border-indigo-500/30" : "bg-white border-slate-200 hover:border-indigo-500/30 shadow-sm"
+          }`}>
+            <div className="h-12 w-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-500">
               <Activity className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-sm font-medium text-slate-400">Total Study Time</p>
-              <h3 className="text-3xl font-bold text-white mt-1">{profile?.study_time || "0"} hours</h3>
+              <p className={`text-sm font-medium ${isDark ? "text-slate-400" : "text-slate-500"}`}>Total Study Time</p>
+              <h3 className={`text-3xl font-bold mt-1 ${isDark ? "text-white" : "text-slate-900"}`}>{profile?.study_time || "0"} hours</h3>
             </div>
           </div>
 
-          <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 hover:border-violet-500/30 transition-all duration-300 space-y-4">
+          {/* Card 2 */}
+          <div className={`p-6 rounded-2xl border transition-all duration-300 space-y-4 ${
+            isDark ? "bg-slate-900 border-slate-800 hover:border-violet-500/30" : "bg-white border-slate-200 hover:border-violet-500/30 shadow-sm"
+          }`}>
             <div className="h-12 w-12 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400">
               <Flame className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-sm font-medium text-slate-400">Daily Streak</p>
-              <h3 className="text-3xl font-bold text-white mt-1">{profile?.streak || "0"} Days</h3>
+              <p className={`text-sm font-medium ${isDark ? "text-slate-400" : "text-slate-500"}`}>Daily Streak</p>
+              <h3 className={`text-3xl font-bold mt-1 ${isDark ? "text-white" : "text-slate-900"}`}>{profile?.streak || "0"} Days</h3>
             </div>
           </div>
 
-          <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 hover:border-emerald-500/30 transition-all duration-300 space-y-4 sm:col-span-2 lg:col-span-1">
+          {/* Card 3 */}
+          <div className={`p-6 rounded-2xl border transition-all duration-300 space-y-4 sm:col-span-2 lg:col-span-1 ${
+            isDark ? "bg-slate-900 border-slate-800 hover:border-emerald-500/30" : "bg-white border-slate-200 hover:border-emerald-500/30 shadow-sm"
+          }`}>
             <div className="h-12 w-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
               <Award className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-sm font-medium text-slate-400">Completed Modules</p>
-              <h3 className="text-3xl font-bold text-white mt-1">{profile?.completed_modules || "0"} Tasks</h3>
+              <p className={`text-sm font-medium ${isDark ? "text-slate-400" : "text-slate-500"}`}>Completed Modules</p>
+              <h3 className={`text-3xl font-bold mt-1 ${isDark ? "text-white" : "text-slate-900"}`}>{profile?.completed_modules || "0"} Tasks</h3>
             </div>
           </div>
         </div>
 
         {/* Dynamic Features Workspace Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          
           {/* Focus Stopwatch Timer */}
-          <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-6 flex flex-col justify-between">
+          <div className={`p-6 rounded-2xl border space-y-6 flex flex-col justify-between ${isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200 shadow-sm"}`}>
             <div>
-              <h2 className="text-xl font-bold text-white">Focus Session Timer</h2>
-              <p className="text-sm text-slate-400 mt-1">Track your active deep work.</p>
+              <h2 className={`text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Focus Session Timer</h2>
+              <p className={`text-sm mt-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>Track your active deep work.</p>
             </div>
             <div className="py-8 text-center">
-              <div className={`text-6xl font-black font-mono tracking-wider transition-all duration-300 ${isTiming ? "text-indigo-400 drop-shadow-[0_0_15px_rgba(99,102,241,0.3)] animate-pulse" : "text-slate-500"}`}>
+              <div className={`text-6xl font-black font-mono tracking-wider transition-all duration-300 ${
+                isTiming 
+                  ? "text-indigo-500 drop-shadow-[0_0_15px_rgba(99,102,241,0.3)] animate-pulse" 
+                  : (isDark ? "text-slate-600" : "text-slate-300")
+              }`}>
                 {formatTime(secondsElapsed)}
               </div>
             </div>
             <button
               onClick={toggleTimer}
               className={`w-full py-4 rounded-xl font-semibold flex items-center justify-center gap-3 transition-all duration-200 border shadow-md ${
-                isTiming ? "bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-600" : "bg-indigo-600 border-indigo-500 text-white hover:bg-indigo-500"
+                isTiming ? "bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-600 hover:text-white" : "bg-indigo-600 border-indigo-500 text-white hover:bg-indigo-500"
               }`}
             >
               {isTiming ? <><Square className="h-5 w-5 fill-current" /> Stop & Save Focus</> : <><Play className="h-5 w-5 fill-current" /> Start Focus Session</>}
@@ -325,20 +380,20 @@ export default function ProfilePage() {
           </div>
 
           {/* Interactive Module Task Manager */}
-          <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-6 flex flex-col justify-between">
+          <div className={`p-6 rounded-2xl border space-y-6 flex flex-col justify-between ${isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200 shadow-sm"}`}>
             <div>
-              <h2 className="text-xl font-bold text-white">Active Daily Targets</h2>
+              <h2 className={`text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Active Daily Targets</h2>
             </div>
             <div className="space-y-3 max-h-[180px] overflow-y-auto pr-1 flex-grow">
               {tasks.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-center text-slate-600 text-sm py-8 select-none">
+                <div className={`h-full flex items-center justify-center text-center text-sm py-8 select-none ${isDark ? "text-slate-600" : "text-slate-400"}`}>
                   No active targets. Add a milestone below to begin!
                 </div>
               ) : (
                 tasks.map((task) => (
-                  <div key={task.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800">
-                    <span className="text-sm text-slate-300 font-medium">{task.text}</span>
-                    <button onClick={() => completeTask(task.id)} className="text-slate-500 hover:text-emerald-400 p-1">
+                  <div key={task.id} className={`flex items-center justify-between p-3 rounded-xl border ${isDark ? "bg-slate-950 border-slate-800" : "bg-slate-50 border-slate-200"}`}>
+                    <span className={isDark ? "text-slate-300 text-sm font-medium" : "text-slate-700 text-sm font-medium"}>{task.text}</span>
+                    <button onClick={() => completeTask(task.id)} className="text-slate-400 hover:text-emerald-500 p-1 transition-colors">
                       <CheckCircle className="h-5 w-5" />
                     </button>
                   </div>
@@ -351,9 +406,13 @@ export default function ProfilePage() {
                 value={newTaskInput}
                 onChange={(e) => setNewTaskInput(e.target.value)}
                 placeholder="e.g., Review Buck Converter Formulas..."
-                className="flex-1 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none"
+                className={`flex-1 rounded-xl px-4 py-3 text-sm outline-none border transition-all ${
+                  isDark 
+                    ? "bg-slate-950 border-slate-800 text-slate-200 focus:border-indigo-500" 
+                    : "bg-slate-50 border-slate-200 text-slate-800 focus:border-indigo-500"
+                }`}
               />
-              <button type="submit" className="p-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-white">
+              <button type="submit" className="p-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-white shadow-md">
                 <Plus className="h-5 w-5" />
               </button>
             </form>

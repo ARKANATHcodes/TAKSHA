@@ -19,8 +19,7 @@ import {
   User,
   Target,
   MapPin,
-  GraduationCap,
-  FolderUp
+  GraduationCap
 } from "lucide-react";
 
 export default function ProfilePage() {
@@ -284,7 +283,6 @@ export default function ProfilePage() {
               <button onClick={() => window.location.href = "/quiz"} className={`text-sm font-medium transition-colors ${isDark ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-900"}`}>Quiz Hub</button>
               <button onClick={() => window.location.href = "/formulas"} className={`text-sm font-medium transition-colors ${isDark ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-900"}`}>Cheat Sheets</button>
               
-              {/* 🛠️ ADDED: AI Teacher Route Link */}
               <button 
                 onClick={() => window.location.href = "/teacher"} 
                 className={`text-sm font-medium flex items-center gap-1.5 transition-colors ${isDark ? "text-slate-400 hover:text-violet-400" : "text-slate-500 hover:text-violet-600"}`}
@@ -388,7 +386,7 @@ export default function ProfilePage() {
         ) : (
           /* STANDARD DASHBOARD VIEW SECTION */
           <>
-            {/* Welcome Block Header with custom @username replacement */}
+            {/* Welcome Block Header */}
             <div className={`relative rounded-2xl overflow-hidden border p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 transition-colors ${
               isDark ? "bg-gradient-to-r from-indigo-900/40 via-slate-900 to-slate-900 border-slate-800" : "bg-white border-slate-200 shadow-sm"
             }`}>
@@ -401,7 +399,6 @@ export default function ProfilePage() {
                     Target: {profile?.preparation_for}
                   </span>
                 </div>
-                {/* 🛠️ UPDATED: Addressed by username dynamically */}
                 <h1 className={`text-3xl md:text-4xl font-extrabold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
                   Welcome, <span className="text-indigo-500">@{profile?.username || "student"}</span>!
                 </h1>
@@ -412,7 +409,7 @@ export default function ProfilePage() {
             </div>
 
             {/* QUICK LAUNCH HOTBAR CARDS */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <button 
                 onClick={() => window.location.href = "/quiz"}
                 className={`p-4 rounded-xl border text-left flex items-center justify-between group transition-all duration-200 ${
@@ -447,25 +444,6 @@ export default function ProfilePage() {
                   </div>
                 </div>
                 <span className="text-slate-400 group-hover:text-violet-400 transition-colors font-bold text-lg">→</span>
-              </button>
-
-              {/* 🛠️ ADDED: Task Submission Portal Card */}
-              <button 
-                onClick={() => window.location.href = "/submission"}
-                className={`p-4 rounded-xl border text-left flex items-center justify-between group transition-all duration-200 ${
-                  isDark ? "border-slate-800 bg-slate-900/50 hover:bg-slate-900 hover:border-emerald-500/30" : "border-slate-200 bg-white hover:bg-slate-50 hover:border-emerald-500/30 shadow-sm"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-400 group-hover:bg-emerald-600 group-hover:text-white transition-all">
-                    <FolderUp className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h4 className={`text-sm font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Task Submission Form</h4>
-                    <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>Upload mandatory project files.</p>
-                  </div>
-                </div>
-                <span className="text-slate-400 group-hover:text-emerald-500 transition-colors font-bold text-lg">→</span>
               </button>
             </div>
 

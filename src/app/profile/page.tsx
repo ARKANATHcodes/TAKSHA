@@ -12,7 +12,8 @@ import {
   Square,
   Plus,
   CheckCircle,
-  Trash2
+  HelpCircle,
+  BookOpen
 } from "lucide-react";
 
 export default function ProfilePage() {
@@ -67,8 +68,6 @@ export default function ProfilePage() {
 
 
   // --- DATABASE OPERATIONS ---
-  
-  // Fetch profile details & run automated streak logic
   const fetchProfile = async (userId: string) => {
     setLoading(true);
     try {
@@ -80,7 +79,6 @@ export default function ProfilePage() {
 
       if (!error && data) {
         setProfile(data);
-        // Automatically check/update streak if it hasn't been updated today
         await checkAndHandleStreak(userId, data);
       }
     } catch (err) {
@@ -90,28 +88,24 @@ export default function ProfilePage() {
     }
   };
 
-  // Feature 1: Automated Streak Tracker Logic
   const checkAndHandleStreak = async (userId: string, currentProfile: any) => {
     const todayStr = new Date().toISOString().split("T")[0];
     const lastLoginStr = currentProfile.last_login;
 
     if (lastLoginStr !== todayStr) {
       let newStreak = currentProfile.streak || 0;
-      
       if (lastLoginStr) {
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
         const yesterdayStr = yesterday.toISOString().split("T")[0];
-
         if (lastLoginStr === yesterdayStr) {
-          newStreak += 1; // Logged in consecutive days!
+          newStreak += 1;
         } else {
-          newStreak = 1; // Broke streak, reset to 1
+          newStreak = 1;
         }
       } else {
-        newStreak = 1; // First time logging in ever
+        newStreak = 1;
       }
-
       const { error } = await supabase
         .from("profiles")
         .update({ streak: newStreak, last_login: todayStr })
@@ -123,17 +117,13 @@ export default function ProfilePage() {
     }
   };
 
-  // Feature 2: Timer Sync Engine (Saves hours back to your database row)
   const toggleTimer = async () => {
     if (isTiming) {
-      // Stopping the timer: calculate fraction of hours studied
       const hoursStudied = Number((secondsElapsed / 3600).toFixed(2));
       const updatedTotalHours = Number(((profile?.study_time || 0) + hoursStudied).toFixed(2));
-
       setIsTiming(false);
       setSecondsElapsed(0);
 
-      // Save live metric back to Supabase
       const { error } = await supabase
         .from("profiles")
         .update({ study_time: updatedTotalHours })
@@ -147,7 +137,6 @@ export default function ProfilePage() {
     }
   };
 
-  // Feature 3: Task Manager Completion Engine
   const addTask = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTaskInput.trim()) return;
@@ -156,10 +145,7 @@ export default function ProfilePage() {
   };
 
   const completeTask = async (taskId: string) => {
-    // Remove from active list
     setTasks(tasks.filter((t) => t.id !== taskId));
-    
-    // Increment total modules stat inside database counter
     const updatedCount = (profile?.completed_modules || 0) + 1;
     const { error } = await supabase
       .from("profiles")
@@ -180,7 +166,6 @@ export default function ProfilePage() {
     }
   };
 
-  // Format stopwatch seconds into crisp text display (MM:SS)
   const formatTime = (totalSeconds: number) => {
     const mins = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
     const secs = (totalSeconds % 60).toString().padStart(2, "0");
@@ -200,15 +185,25 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-slate-100 font-sans">
-      {/* Top Header */}
+      
+      {/* HEADER WITH NEW INTERACTIVE NAVIGATION LINKS */}
       <header className="border-b border-slate-800 bg-[#0f172a]/80 backdrop-blur sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="h-9 w-9 rounded-xl bg-indigo-600 flex items-center justify-center font-black text-white shadow-lg shadow-indigo-500/20">
-            T
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => window.location.href = "/profile"}>
+            <div className="h-9 w-9 rounded-xl bg-indigo-600 flex items-center justify-center font-black text-white shadow-lg shadow-indigo-500/20">
+              T
+            </div>
+            <span className="text-lg font-bold tracking-tight bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">
+              TAKSHA v2.0
+            </span>
           </div>
-          <span className="text-lg font-bold tracking-tight bg-gradient-to-r select-none from-indigo-400 to-violet-400 bg-clip-text text-transparent">
-            TAKSHA v2.0
-          </span>
+
+          {/* New Navigation Group */}
+          <nav className="hidden md:flex items-center gap-4 border-l border-slate-800 pl-6">
+            <button onClick={() => window.location.href = "/profile"} className="text-sm font-semibold text-indigo-400">Dashboard</button>
+            <button onClick={() => window.location.href = "/quiz"} className="text-sm font-medium text-slate-400 hover:text-slate-200 transition-colors">Quiz Hub</button>
+            <button onClick={() => window.location.href = "/formulas"} className="text-sm font-medium text-slate-400 hover:text-slate-200 transition-colors">Cheat Sheets</button>
+          </nav>
         </div>
         
         <button
@@ -238,9 +233,43 @@ export default function ProfilePage() {
           </div>
         </div>
 
+        {/* NEW QUICK LAUNCH HOTBAR LINKS FOR MOBILE/DESKTOP */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <button 
+            onClick={() => window.location.href = "/quiz"}
+            className="p-4 rounded-xl border border-slate-800 bg-slate-900/50 hover:bg-slate-900 text-left flex items-center justify-between group transition-all duration-200 hover:border-indigo-500/30"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-lg bg-indigo-500/10 text-indigo-400 group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                <HelpCircle className="h-5 w-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-white">Launch Quiz Hub</h4>
+                <p className="text-xs text-slate-400">Test engineering & physics knowledge to level up.</p>
+              </div>
+            </div>
+            <span className="text-slate-600 group-hover:text-indigo-400 transition-colors font-bold text-lg">→</span>
+          </button>
+
+          <button 
+            onClick={() => window.location.href = "/formulas"}
+            className="p-4 rounded-xl border border-slate-800 bg-slate-900/50 hover:bg-slate-900 text-left flex items-center justify-between group transition-all duration-200 hover:border-violet-500/30"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-lg bg-violet-500/10 text-violet-400 group-hover:bg-violet-600 group-hover:text-white transition-all">
+                <BookOpen className="h-5 w-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-white">Formula Cheat Sheets</h4>
+                <p className="text-xs text-slate-400">Review hidden or active mathematical formulas.</p>
+              </div>
+            </div>
+            <span className="text-slate-600 group-hover:text-violet-400 transition-colors font-bold text-lg">→</span>
+          </button>
+        </div>
+
         {/* Live Metrics Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Metric 1: Study Time */}
           <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 hover:border-indigo-500/30 transition-all duration-300 space-y-4">
             <div className="h-12 w-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
               <Activity className="h-6 w-6" />
@@ -251,7 +280,6 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Metric 2: Streak counter */}
           <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 hover:border-violet-500/30 transition-all duration-300 space-y-4">
             <div className="h-12 w-12 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400">
               <Flame className="h-6 w-6" />
@@ -262,7 +290,6 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Metric 3: Task counter */}
           <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 hover:border-emerald-500/30 transition-all duration-300 space-y-4 sm:col-span-2 lg:col-span-1">
             <div className="h-12 w-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
               <Award className="h-6 w-6" />
@@ -276,90 +303,63 @@ export default function ProfilePage() {
 
         {/* Dynamic Features Workspace Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          
-          {/* FEATURE PANEL 1: Focus Stopwatch Timer */}
+          {/* Focus Stopwatch Timer */}
           <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-6 flex flex-col justify-between">
             <div>
               <h2 className="text-xl font-bold text-white">Focus Session Timer</h2>
-              <p className="text-sm text-slate-400 mt-1">Track your active deep work. Stopping the timer automatically saves hours directly to your total stats counter.</p>
+              <p className="text-sm text-slate-400 mt-1">Track your active deep work.</p>
             </div>
-
             <div className="py-8 text-center">
               <div className={`text-6xl font-black font-mono tracking-wider transition-all duration-300 ${isTiming ? "text-indigo-400 drop-shadow-[0_0_15px_rgba(99,102,241,0.3)] animate-pulse" : "text-slate-500"}`}>
                 {formatTime(secondsElapsed)}
               </div>
             </div>
-
             <button
               onClick={toggleTimer}
               className={`w-full py-4 rounded-xl font-semibold flex items-center justify-center gap-3 transition-all duration-200 border shadow-md ${
-                isTiming 
-                  ? "bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-600 hover:text-white" 
-                  : "bg-indigo-600 border-indigo-500 text-white hover:bg-indigo-500 shadow-indigo-600/10"
+                isTiming ? "bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-600" : "bg-indigo-600 border-indigo-500 text-white hover:bg-indigo-500"
               }`}
             >
-              {isTiming ? (
-                <>
-                  <Square className="h-5 w-5 fill-current" />
-                  <span>Stop & Save Focus Session</span>
-                </>
-              ) : (
-                <>
-                  <Play className="h-5 w-5 fill-current" />
-                  <span>Start Focus Session</span>
-                </>
-              )}
+              {isTiming ? <><Square className="h-5 w-5 fill-current" /> Stop & Save Focus</> : <><Play className="h-5 w-5 fill-current" /> Start Focus Session</>}
             </button>
           </div>
 
-          {/* FEATURE PANEL 2: Interactive Module Task Manager */}
+          {/* Interactive Module Task Manager */}
           <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-6 flex flex-col justify-between">
             <div>
               <h2 className="text-xl font-bold text-white">Active Daily Targets</h2>
-              <p className="text-sm text-slate-400 mt-1">Checking off a target automatically registers as a completed module in your profile summary record.</p>
             </div>
-
-            {/* Tasks Feed Content */}
             <div className="space-y-3 max-h-[180px] overflow-y-auto pr-1 flex-grow">
               {tasks.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-center text-slate-600 text-sm font-medium py-8 select-none">
+                <div className="h-full flex items-center justify-center text-center text-slate-600 text-sm py-8 select-none">
                   No active targets. Add a milestone below to begin!
                 </div>
               ) : (
                 tasks.map((task) => (
-                  <div key={task.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800 group hover:border-indigo-500/20 transition-all duration-200">
+                  <div key={task.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800">
                     <span className="text-sm text-slate-300 font-medium">{task.text}</span>
-                    <button
-                      onClick={() => completeTask(task.id)}
-                      className="text-slate-500 hover:text-emerald-400 p-1 transition-colors duration-150"
-                      title="Complete Target"
-                    >
+                    <button onClick={() => completeTask(task.id)} className="text-slate-500 hover:text-emerald-400 p-1">
                       <CheckCircle className="h-5 w-5" />
                     </button>
                   </div>
                 ))
               )}
             </div>
-
-            {/* Inject Action Input Input Footer */}
             <form onSubmit={addTask} className="flex items-center gap-2 mt-auto">
               <input
                 type="text"
                 value={newTaskInput}
                 onChange={(e) => setNewTaskInput(e.target.value)}
                 placeholder="e.g., Review Buck Converter Formulas..."
-                className="flex-1 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none placeholder-slate-600 transition-all duration-200"
+                className="flex-1 bg-slate-950 border border-slate-800 focus:border-indigo-500 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none"
               />
-              <button
-                type="submit"
-                className="p-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-white font-medium transition-colors duration-150 shadow-md shadow-indigo-600/10"
-              >
+              <button type="submit" className="p-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-white">
                 <Plus className="h-5 w-5" />
               </button>
             </form>
           </div>
-
         </div>
+
       </main>
     </div>
   );

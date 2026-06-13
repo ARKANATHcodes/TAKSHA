@@ -9,8 +9,7 @@ import {
   ArrowLeft, 
   Cpu, 
   Gauge, 
-  BookOpen, 
-  MessageSquare 
+  BookOpen 
 } from "lucide-react";
 
 export default function TeacherPage() {
@@ -32,32 +31,32 @@ export default function TeacherPage() {
     }
   }, []);
 
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!message.trim()) return;
+  // 🛠️ INTEGRATED STEP 2: Real API Communication Engine
+  const handleSendMessage = async (e?: React.FormEvent, textOverride?: string) => {
+    if (e) e.preventDefault();
+    const textToSend = textOverride || message;
+    if (!textToSend.trim()) return;
 
-    // Append user message
-    const updatedHistory = [
-      ...chatHistory,
-      { role: "user", content: message.trim() }
-    ];
-    setChatHistory(updatedHistory);
+    const newHistory = [...chatHistory, { role: "user", content: textToSend }];
+    setChatHistory(newHistory);
     setMessage("");
 
-    // Simulate Socratic Response Loop
-    setTimeout(() => {
-      setChatHistory([
-        ...updatedHistory,
-        {
-          role: "assistant",
-          content: "Fascinating perspective. To help you anchor that concept deeply, consider this: what happens to the output ripple voltage if we change our primary parameter thresholds?"
-        }
-      ]);
-    }, 1000);
+    try {
+      const response = await fetch('/api/teacher', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: textToSend, history: chatHistory }),
+      });
+      const data = await response.json();
+      setChatHistory([...newHistory, { role: "assistant", content: data.content }]);
+    } catch (err) {
+      setChatHistory([...newHistory, { role: "assistant", content: "Connection lost to the mentor chamber. Check your network." }]);
+    }
   };
 
   const loadPresetTopic = (topicText: string) => {
-    setMessage(`Can you guide me through analyzing ${topicText}?`);
+    const textToSubmit = `Can you guide me through analyzing ${topicText}?`;
+    handleSendMessage(undefined, textToSubmit);
   };
 
   return (
@@ -116,7 +115,7 @@ export default function TeacherPage() {
                   isDark ? "bg-slate-950 border-slate-800 hover:border-emerald-500/40 text-slate-300" : "bg-slate-50 border-slate-200 hover:border-emerald-500/40 text-slate-700"
                 }`}
               >
-                <BookOpen className="h-4 w-4 text-emerald-400" /> Magnetic Transformer Core Losses
+                <BookOpen className="h-4 w-4 text-emerald-400" /> Transformer Core Losses
               </button>
             </div>
           </div>

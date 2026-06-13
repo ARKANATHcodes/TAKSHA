@@ -1,285 +1,110 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabaseClient";
-import { Award, CheckCircle2, XCircle, ArrowRight, HelpCircle, LogOut } from "lucide-react";
+import { ArrowLeft, CheckCircle2, XCircle, Zap, Beaker, Radio } from "lucide-react";
 
-// Sample Technical Engineering/Physics Question Bank
-const QUESTION_BANK = [
+const engineeringQuestions = [
   {
-    id: 1,
-    question: "What is the primary function of a Buck Converter in power electronics?",
-    options: [
-      "Step up DC voltage",
-      "Step down DC voltage",
-      "Convert AC to DC",
-      "Filter high-frequency noise"
-    ],
-    correctAnswer: 1 // "Step down DC voltage"
+    topic: "Transformers",
+    question: "Why is a transformer rated in kVA instead of kW?",
+    options: ["It depends on load power factor", "Eddy currents are constant", "Copper loss is negligible", "Voltage is always DC"],
+    answer: 0,
+    explanation: "Transformer losses depend on voltage (Core loss) and current (Copper loss), regardless of the phase angle (Power Factor)."
   },
   {
-    id: 2,
-    question: "According to Boyle's Law, if the volume of a gas container is decreased at a constant temperature, what happens to the internal pressure?",
-    options: [
-      "The pressure decreases proportionally",
-      "The pressure remains completely unchanged",
-      "The pressure increases",
-      "The pressure drops instantly to zero"
-    ],
-    correctAnswer: 2 // "The pressure increases"
+    topic: "Thermodynamics",
+    question: "According to Boyle's Law, if volume is reduced by half at constant temp, pressure will:",
+    options: ["Reduce by half", "Stay the same", "Double", "Become zero"],
+    answer: 2,
+    explanation: "P1V1 = P2V2. Since P is inversely proportional to V, halving volume doubles pressure."
   },
   {
-    id: 3,
-    question: "Which component is strictly used to provide high rupturing capacity (HRC) short-circuit protection in power distribution boards?",
-    options: [
-      "Zener Diode",
-      "HRC Fuse",
-      "Step-down Transformer",
-      "Buck Inductor"
-    ],
-    correctAnswer: 1 // "HRC Fuse"
+    topic: "Power Electronics",
+    question: "What is the duty cycle (D) of a Buck converter if Vin = 24V and Vout = 12V?",
+    options: ["0.25", "0.50", "0.75", "1.00"],
+    answer: 1,
+    explanation: "D = Vout / Vin. Therefore, 12V / 24V = 0.5."
   }
 ];
 
 export default function QuizPage() {
-  const router = useRouter();
-  const [user, setUser] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [isDark, setIsDark] = useState(true);
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [score, setScore] = useState(0);
+  const [showResult, setShowResult] = useState(false);
+  const [selectedOpt, setSelectedOpt] = useState<number | null>(null);
 
-  // Quiz Engine States
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
-  const [selectedOption, setSelectedOption] = useState<number | null>(null);
-  const [isAnswered, setIsAnswered] = useState<boolean>(false);
-  const [score, setScore] = useState<number>(0);
-  const [quizComplete, setQuizComplete] = useState<boolean>(false);
-  const [savingLoading, setSavingLoading] = useState<boolean>(false);
-
-  // Auth Protection Lock
   useEffect(() => {
-    const checkUser = async () => {
-      try {
-        const { data: { user: activeUser } } = await supabase.auth.getUser();
-        if (!activeUser) {
-          window.location.href = "/login";
-        } else {
-          setUser(activeUser);
-          const { data: prof } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", activeUser.id)
-            .single();
-          if (prof) setProfile(prof);
-        }
-      } catch (err) {
-        console.error("Quiz auth error:", err);
-        window.location.href = "/login";
-      } finally {
-        setLoading(false);
-      }
-    };
-    checkUser();
+    const saved = localStorage.getItem("taksha-theme");
+    if (saved === "light") setIsDark(false);
   }, []);
 
-  const handleOptionSelect = (optionIndex: number) => {
-    if (isAnswered) return; // Lock inputs once evaluated
-    setSelectedOption(optionIndex);
-  };
+  const handleAnswer = async (idx: number) => {
+    setSelectedOpt(idx);
+    let newScore = score;
+    if (idx === engineeringQuestions[currentIdx].answer) newScore++;
+    setScore(newScore);
 
-  const handleSubmitAnswer = () => {
-    if (selectedOption === null || isAnswered) return;
-    
-    const currentQuestion = QUESTION_BANK[currentQuestionIndex];
-    if (selectedOption === currentQuestion.correctAnswer) {
-      setScore((prev) => prev + 1);
-    }
-    setIsAnswered(true);
-  };
-
-  const handleNextQuestion = async () => {
-    setSelectedOption(null);
-    setIsAnswered(false);
-
-    if (currentQuestionIndex + 1 < QUESTION_BANK.length) {
-      setCurrentQuestionIndex((prev) => prev + 1);
-    } else {
-      setQuizComplete(true);
-      await saveQuizProgress();
-    }
-  };
-
-  // Sync Quiz Completion reward back to Supabase Profiles Table
-  const saveQuizProgress = async () => {
-    if (!user) return;
-    setSavingLoading(true);
-    try {
-      // Calculate reward criteria (e.g., if they passed with 2 or more correct)
-      const updatedModulesCount = (profile?.completed_modules || 0) + 1;
-      const updatedLevel = (profile?.level || 1) + 1; // Level up!
-
-      const { error } = await supabase
-        .from("profiles")
-        .update({ 
-          completed_modules: updatedModulesCount,
-          level: updatedLevel
-        })
-        .eq("id", user.id);
-
-      if (!error) {
-        setProfile((prev: any) => ({ 
-          ...prev, 
-          completed_modules: updatedModulesCount,
-          level: updatedLevel
-        }));
+    setTimeout(async () => {
+      if (currentIdx < engineeringQuestions.length - 1) {
+        setCurrentIdx(currentIdx + 1);
+        setSelectedOpt(null);
+      } else {
+        setShowResult(true);
+        // UPDATE SUPABASE LEVEL
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && newScore === engineeringQuestions.length) {
+           await supabase.from('profiles').update({ level: 2 }).eq('id', user.id);
+        }
       }
-    } catch (err) {
-      console.error("Error updating quiz scores:", err);
-    } finally {
-      setSavingLoading(false);
-    }
+    }, 1000);
   };
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0f172a] text-white">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent"></div>
-      </div>
-    );
-  }
-
-  const currentQuestion = QUESTION_BANK[currentQuestionIndex];
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-slate-100 font-sans">
-      {/* Header Banner Navigation */}
-      <header className="border-b border-slate-800 bg-[#0f172a]/80 backdrop-blur sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2 cursor-pointer" onClick={() => window.location.href = "/profile"}>
-          <div className="h-9 w-9 rounded-xl bg-indigo-600 flex items-center justify-center font-black text-white shadow-lg shadow-indigo-500/20">
-            T
-          </div>
-          <span className="text-lg font-bold tracking-tight bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">
-            TAKSHA v2.0 • Quiz Hub
-          </span>
-        </div>
-        <button 
-          onClick={() => window.location.href = "/profile"}
-          className="text-sm font-medium text-indigo-400 hover:text-indigo-300 transition-colors"
-        >
-          Return to Dashboard →
-        </button>
+    <div className={`min-h-screen p-6 transition-all ${isDark ? "bg-[#0f172a] text-white" : "bg-slate-50 text-slate-900"}`}>
+      <header className="max-w-3xl mx-auto flex items-center justify-between mb-10">
+        <button onClick={() => window.location.href = "/profile"} className="p-2 border rounded-xl hover:bg-indigo-500 hover:text-white transition-all"><ArrowLeft className="h-5 w-5"/></button>
+        <h1 className="text-2xl font-black italic tracking-tighter text-indigo-500">QUIZ HUB v1.0</h1>
+        <div className="text-xs font-bold px-3 py-1 bg-indigo-500/10 rounded-full border border-indigo-500/20">Step {currentIdx + 1} of 3</div>
       </header>
 
-      {/* Main Play Area */}
-      <main className="max-w-3xl mx-auto p-6 md:p-12">
-        {!quizComplete ? (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 md:p-8 space-y-6 shadow-xl">
-            {/* Progress indicator */}
-            <div className="flex justify-between items-center text-sm text-slate-400">
-              <span className="font-semibold text-indigo-400">Question {currentQuestionIndex + 1} of {QUESTION_BANK.length}</span>
-              <span>Running Score: {score}</span>
+      <main className="max-w-3xl mx-auto">
+        {!showResult ? (
+          <div className={`p-8 rounded-3xl border ${isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200 shadow-xl"}`}>
+            <div className="flex items-center gap-2 mb-4">
+               {currentIdx === 0 && <Zap className="h-4 w-4 text-amber-400"/>}
+               {currentIdx === 1 && <Beaker className="h-4 w-4 text-emerald-400"/>}
+               {currentIdx === 2 && <Radio className="h-4 w-4 text-violet-400"/>}
+               <span className="text-xs font-bold uppercase tracking-widest text-slate-500">{engineeringQuestions[currentIdx].topic}</span>
             </div>
-
-            {/* Question Text */}
-            <div className="flex gap-3 items-start">
-              <HelpCircle className="h-6 w-6 text-indigo-400 flex-shrink-0 mt-1" />
-              <h2 className="text-xl font-bold text-white tracking-tight leading-relaxed">
-                {currentQuestion.question}
-              </h2>
-            </div>
-
-            {/* Multiple Choice Selection Grid */}
-            <div className="space-y-3 pt-2">
-              {currentQuestion.options.map((option, idx) => {
-                let optionStyle = "border-slate-800 bg-slate-950/40 text-slate-300 hover:border-slate-700 hover:bg-slate-950/80";
-                
-                if (selectedOption === idx) {
-                  optionStyle = "border-indigo-500 bg-indigo-500/10 text-indigo-300";
-                }
-                
-                if (isAnswered) {
-                  if (idx === currentQuestion.correctAnswer) {
-                    optionStyle = "border-emerald-500 bg-emerald-500/10 text-emerald-400 font-semibold";
-                  } else if (selectedOption === idx) {
-                    optionStyle = "border-red-500 bg-red-500/10 text-red-400";
-                  } else {
-                    optionStyle = "border-slate-800 opacity-40 text-slate-500";
-                  }
-                }
-
-                return (
-                  <button
-                    key={idx}
-                    disabled={isAnswered}
-                    onClick={() => handleOptionSelect(idx)}
-                    className={`w-full text-left p-4 rounded-xl border text-sm transition-all duration-150 flex items-center justify-between ${optionStyle}`}
-                  >
-                    <span>{option}</span>
-                    {isAnswered && idx === currentQuestion.correctAnswer && <CheckCircle2 className="h-4 w-4 text-emerald-400" />}
-                    {isAnswered && selectedOption === idx && idx !== currentQuestion.correctAnswer && <XCircle className="h-4 w-4 text-red-400" />}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Action Buttons footer */}
-            <div className="pt-4 flex justify-end">
-              {!isAnswered ? (
+            <h2 className="text-xl font-bold mb-8 leading-tight">{engineeringQuestions[currentIdx].question}</h2>
+            
+            <div className="grid gap-3">
+              {engineeringQuestions[currentIdx].options.map((opt, i) => (
                 <button
-                  onClick={handleSubmitAnswer}
-                  disabled={selectedOption === null}
-                  className="px-6 py-3 bg-indigo-600 disabled:opacity-40 disabled:hover:bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl text-sm transition-all duration-150 shadow-md shadow-indigo-600/10 flex items-center gap-2"
+                  key={i}
+                  disabled={selectedOpt !== null}
+                  onClick={() => handleAnswer(i)}
+                  className={`w-full p-4 rounded-2xl border text-left font-medium transition-all ${
+                    selectedOpt === i 
+                      ? (i === engineeringQuestions[currentIdx].answer ? "bg-emerald-500 border-emerald-400 text-white" : "bg-red-500 border-red-400 text-white")
+                      : (isDark ? "bg-slate-950 border-slate-800 hover:border-indigo-500" : "bg-slate-50 border-slate-200 hover:border-indigo-500")
+                  }`}
                 >
-                  Verify Answer
+                  {opt}
                 </button>
-              ) : (
-                <button
-                  onClick={handleNextQuestion}
-                  className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-xl text-sm transition-all duration-150 flex items-center gap-2"
-                >
-                  <span>{currentQuestionIndex + 1 === QUESTION_BANK.length ? "Finish Quiz" : "Next Question"}</span>
-                  <ArrowRight className="h-4 w-4" />
-                </button>
-              )}
+              ))}
             </div>
           </div>
         ) : (
-          /* QUIZ SUMMARY REPORT VIEW */
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center space-y-6 shadow-2xl">
-            <div className="h-16 w-16 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center mx-auto shadow-lg">
-              <Award className="h-8 w-8" />
+          <div className="text-center space-y-6">
+            <div className="inline-flex p-6 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+              <CheckCircle2 className="h-16 w-16" />
             </div>
-
-            <div className="space-y-2">
-              <h2 className="text-3xl font-black text-white tracking-tight">Module Completed!</h2>
-              <p className="text-slate-400 text-sm max-w-sm mx-auto">
-                You successfully completed the engineering assignment and scored <span className="text-emerald-400 font-bold">{score} / {QUESTION_BANK.length}</span> correct answers.
-              </p>
-            </div>
-
-            <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 max-w-xs mx-auto text-xs text-slate-400 space-y-1">
-              <div>🏆 Completed Modules Status: <span className="text-slate-200 font-medium">+{savingLoading ? "..." : "1 Task"}</span></div>
-              <div>⚡ Profile Student Level Up: <span className="text-indigo-400 font-medium">Level {profile?.level || "Next"}</span></div>
-            </div>
-
-            <div className="pt-4 flex flex-col sm:flex-row gap-3 justify-center">
-              <button
-                onClick={() => {
-                  setCurrentQuestionIndex(0);
-                  setScore(0);
-                  setQuizComplete(false);
-                }}
-                className="px-5 py-3 border border-slate-800 hover:bg-slate-800 rounded-xl text-sm font-medium text-slate-300 transition-all duration-150"
-              >
-                Retake Revision Quiz
-              </button>
-              <button
-                onClick={() => window.location.href = "/profile"}
-                className="px-5 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-sm font-semibold text-white transition-all duration-150 shadow-md shadow-indigo-600/10"
-              >
-                Go to Profile Dashboard
-              </button>
-            </div>
+            <h2 className="text-4xl font-black">Assessment Complete</h2>
+            <p className="text-slate-400">You scored {score} out of {engineeringQuestions.length}. {score === 3 ? "Your profile level has been upgraded!" : "Review your notes and try again."}</p>
+            <button onClick={() => window.location.href = "/profile"} className="px-8 py-3 bg-indigo-600 text-white font-bold rounded-2xl hover:bg-indigo-500 transition-all shadow-xl shadow-indigo-600/20">Return to Dashboard</button>
           </div>
         )}
       </main>

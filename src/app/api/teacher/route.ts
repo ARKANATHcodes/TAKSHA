@@ -1,26 +1,50 @@
 import { NextResponse } from 'next/server';
+import { GoogleGenAI } from '@google/genai';
 
 export async function POST(req: Request) {
   try {
     const { message, history } = await req.json();
 
-    // SYSTEM PROMPT: This defines the "Teacher" personality
-    const systemPrompt = `You are the TAKSHA Socratic Engineering Mentor. 
-    Your goal is to help university students derive engineering and physics answers.
-    1. Never give the answer directly first.
-    2. Ask a leading question based on the student's input.
-    3. Use technical terms (Duty Cycle, EMF, Isothermal, Flux).
-    4. If the student is stuck, provide the formula (e.g., P1V1 = P2V2).`;
+    if (!process.env.GEMINI_API_KEY) {
+      return NextResponse.json(
+        { content: "🚨 API Key missing from server environment. Check your .env.local file setup." },
+        { status: 500 }
+      );
+    }
 
-    // FOR NOW: We simulate the AI logic. 
-    // TO ACTIVATE REAL AI: Replace this block with your Gemini/OpenAI API call.
-    const aiResponse = `Mentor Analysis: Your query regarding "${message}" is insightful. 
-    To understand this deeply, think about the conservation of energy. 
-    If the input power must equal output power (ideally), how does the change in voltage 
-    affect the current flow in this specific circuit?`;
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-    return NextResponse.json({ content: aiResponse });
-  } catch (error) {
-    return NextResponse.json({ error: "Teacher is busy in the lab." }, { status: 500 });
+    const systemPrompt = `You are the TAKSHA Socratic Engineering Mentor. Your user is an advanced student studying Electrical Engineering and Applied Physics. 
+    Guidelines:
+    1. NEVER provide a final equation solution or full answer directly on the first try.
+    2. Guide the student step-by-step by asking an insightful leading question based on their problem statement.
+    3. Seamlessly reference technical terms where applicable (e.g., duty ratio calculations, transient response curves, isothermal configurations, core flux hysteresis).
+    4. If they show deep confusion or are completely stuck, explicitly give them the targeted physics/circuit formula to help them recalculate. Keep answers concise and readable.`;
+
+    const formattedHistory = history.map((msg: any) => ({
+      role: msg.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: msg.content }]
+    }));
+
+    // FIXED: Upgraded to an active production model string to prevent 404 v1beta errors
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash', 
+      contents: [
+        ...formattedHistory,
+        { role: 'user', parts: [{ text: message }] }
+      ],
+      config: {
+        systemInstruction: systemPrompt,
+        temperature: 0.7,
+      }
+    });
+
+    return NextResponse.json({ content: response.text || "My circuit relays are resetting." });
+  } catch (error: any) {
+    console.error("❌ DETAILED GEMINI API ERROR:", error);
+    return NextResponse.json(
+      { content: `🚨 Mentor link faulted. Server Error: ${error.message || "Unknown API response error"}` },
+      { status: 500 }
+    );
   }
 }

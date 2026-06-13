@@ -15,7 +15,10 @@ import {
   HelpCircle,
   BookOpen,
   Sun,
-  Moon
+  Moon,
+  User,
+  Target,
+  MapPin
 } from "lucide-react";
 
 export default function ProfilePage() {
@@ -26,8 +29,18 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // 🔥 Feature State: Global Theme Manager (Default to true/dark)
+  // Global Theme Manager (Default to true/dark)
   const [isDark, setIsDark] = useState<boolean>(true);
+
+  // Onboarding Form States
+  const [isOnboarding, setIsOnboarding] = useState<boolean>(false);
+  const [formData, setFormData] = useState({
+    username: "",
+    preparation_for: "",
+    state: "",
+    city: ""
+  });
+  const [formSubmitting, setFormSubmitting] = useState<boolean>(false);
 
   // Feature States: Live Study Timer
   const [isTiming, setIsTiming] = useState<boolean>(false);
@@ -46,7 +59,6 @@ export default function ProfilePage() {
     }
   }, []);
 
-  // Toggle Theme Function
   const toggleTheme = () => {
     const nextTheme = !isDark;
     setIsDark(nextTheme);
@@ -98,12 +110,57 @@ export default function ProfilePage() {
 
       if (!error && data) {
         setProfile(data);
+        
+        // 🚨 Check if onboarding data is missing
+        if (!data.username || !data.preparation_for) {
+          setIsOnboarding(true);
+          setFormData({
+            username: data.username || "",
+            preparation_for: data.preparation_for || "",
+            state: data.state || "",
+            city: data.city || ""
+          });
+        }
+
         await checkAndHandleStreak(userId, data);
       }
     } catch (err) {
       console.error("Error connecting to profiles table:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Handle Onboarding Profile Submit
+  const handleOnboardingSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.username.trim() || !formData.preparation_for.trim()) return;
+
+    setFormSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          username: formData.username.trim(),
+          preparation_for: formData.preparation_for.trim(),
+          state: formData.state.trim(),
+          city: formData.city.trim()
+        })
+        .eq("id", user.id);
+
+      if (!error) {
+        setProfile((prev: any) => ({
+          ...prev,
+          ...formData
+        }));
+        setIsOnboarding(false);
+      } else {
+        alert("Error saving your profile details. Please try again.");
+      }
+    } catch (err) {
+      console.error("Onboarding submission error:", err);
+    } finally {
+      setFormSubmitting(false);
     }
   };
 
@@ -205,7 +262,7 @@ export default function ProfilePage() {
   return (
     <div className={`min-h-screen font-sans transition-colors duration-200 ${isDark ? "bg-[#0f172a] text-slate-100" : "bg-slate-50 text-slate-800"}`}>
       
-      {/* HEADER WITH DYNAMIC BACKGROUND & THEME TOGGLE */}
+      {/* HEADER NAVBAR */}
       <header className={`border-b sticky top-0 z-50 px-6 py-4 flex items-center justify-between backdrop-blur transition-colors ${
         isDark ? "border-slate-800 bg-[#0f172a]/80" : "border-slate-200 bg-white/80"
       }`}>
@@ -219,23 +276,21 @@ export default function ProfilePage() {
             </span>
           </div>
 
-          <nav className={`hidden md:flex items-center gap-4 border-l pl-6 ${isDark ? "border-slate-800" : "border-slate-200"}`}>
-            <button onClick={() => window.location.href = "/profile"} className="text-sm font-semibold text-indigo-500">Dashboard</button>
-            <button onClick={() => window.location.href = "/quiz"} className={`text-sm font-medium transition-colors ${isDark ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-900"}`}>Quiz Hub</button>
-            <button onClick={() => window.location.href = "/formulas"} className={`text-sm font-medium transition-colors ${isDark ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-900"}`}>Cheat Sheets</button>
-          </nav>
+          {!isOnboarding && (
+            <nav className={`hidden md:flex items-center gap-4 border-l pl-6 ${isDark ? "border-slate-800" : "border-slate-200"}`}>
+              <button onClick={() => window.location.href = "/profile"} className="text-sm font-semibold text-indigo-500">Dashboard</button>
+              <button onClick={() => window.location.href = "/quiz"} className={`text-sm font-medium transition-colors ${isDark ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-900"}`}>Quiz Hub</button>
+              <button onClick={() => window.location.href = "/formulas"} className={`text-sm font-medium transition-colors ${isDark ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-900"}`}>Cheat Sheets</button>
+            </nav>
+          )}
         </div>
         
         <div className="flex items-center gap-3">
-          {/* 🔥 NEW THEME TOGGLE BUTTON */}
           <button
             onClick={toggleTheme}
             className={`p-2.5 rounded-xl border transition-all duration-200 ${
-              isDark 
-                ? "bg-slate-900 border-slate-800 text-amber-400 hover:bg-slate-800" 
-                : "bg-white border-slate-200 text-violet-600 hover:bg-slate-100 shadow-sm"
+              isDark ? "bg-slate-900 border-slate-800 text-amber-400 hover:bg-slate-800" : "bg-white border-slate-200 text-violet-600 hover:bg-slate-100 shadow-sm"
             }`}
-            title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
           >
             {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
@@ -250,174 +305,246 @@ export default function ProfilePage() {
         </div>
       </header>
 
-      {/* Main Content Dashboard */}
+      {/* DYNAMIC HUB CONTENT VIEW */}
       <main className="max-w-7xl mx-auto p-6 md:p-8 space-y-8">
         
-        {/* Welcome Block */}
-        <div className={`relative rounded-2xl overflow-hidden border p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 transition-colors ${
-          isDark ? "bg-gradient-to-r from-indigo-900/40 via-slate-900 to-slate-900 border-slate-800" : "bg-white border-slate-200 shadow-sm"
-        }`}>
-          <div className="space-y-2 text-center md:text-left">
-            <span className="px-3 py-1 text-xs font-semibold rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-              Level {profile?.level || "1"} Student
-            </span>
-            <h1 className={`text-3xl md:text-4xl font-extrabold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
-              Welcome back, <span className="text-indigo-500">{profile?.full_name || user?.email?.split('@')[0]}</span>!
-            </h1>
-            <p className={isDark ? "text-slate-400 text-sm" : "text-slate-500 text-sm"}>
-              Account: <span className={`font-medium ${isDark ? "text-slate-300" : "text-slate-700"}`}>{user?.email}</span>
-            </p>
-          </div>
-        </div>
-
-        {/* QUICK LAUNCH HOTBAR CARDS */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <button 
-            onClick={() => window.location.href = "/quiz"}
-            className={`p-4 rounded-xl border text-left flex items-center justify-between group transition-all duration-200 ${
-              isDark ? "border-slate-800 bg-slate-900/50 hover:bg-slate-900 hover:border-indigo-500/30" : "border-slate-200 bg-white hover:bg-slate-50 hover:border-indigo-500/30 shadow-sm"
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-lg bg-indigo-500/10 text-indigo-500 group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                <HelpCircle className="h-5 w-5" />
+        {isOnboarding ? (
+          /* 🚨 INTERACTIVE ONBOARDING DATA COLLECTION FORM */
+          <div className="max-w-md mx-auto pt-6">
+            <div className={`border p-6 md:p-8 rounded-2xl space-y-6 shadow-xl ${isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"}`}>
+              <div className="space-y-2 text-center">
+                <h2 className={`text-2xl font-black ${isDark ? "text-white" : "text-slate-900"}`}>Configure Your Targets</h2>
+                <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>Customize your TAKSHA tracking profile before continuing.</p>
               </div>
-              <div>
-                <h4 className={`text-sm font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Launch Quiz Hub</h4>
-                <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>Test engineering & physics knowledge to level up.</p>
-              </div>
-            </div>
-            <span className="text-slate-400 group-hover:text-indigo-500 transition-colors font-bold text-lg">→</span>
-          </button>
 
-          <button 
-            onClick={() => window.location.href = "/formulas"}
-            className={`p-4 rounded-xl border text-left flex items-center justify-between group transition-all duration-200 ${
-              isDark ? "border-slate-800 bg-slate-900/50 hover:bg-slate-900 hover:border-violet-500/30" : "border-slate-200 bg-white hover:bg-slate-50 hover:border-violet-500/30 shadow-sm"
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-lg bg-violet-500/10 text-violet-400 group-hover:bg-violet-600 group-hover:text-white transition-all">
-                <BookOpen className="h-5 w-5" />
-              </div>
-              <div>
-                <h4 className={`text-sm font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Formula Cheat Sheets</h4>
-                <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>Review hidden or active mathematical formulas.</p>
-              </div>
-            </div>
-            <span className="text-slate-400 group-hover:text-violet-400 transition-colors font-bold text-lg">→</span>
-          </button>
-        </div>
-
-        {/* Live Metrics Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Card 1 */}
-          <div className={`p-6 rounded-2xl border transition-all duration-300 space-y-4 ${
-            isDark ? "bg-slate-900 border-slate-800 hover:border-indigo-500/30" : "bg-white border-slate-200 hover:border-indigo-500/30 shadow-sm"
-          }`}>
-            <div className="h-12 w-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-500">
-              <Activity className="h-6 w-6" />
-            </div>
-            <div>
-              <p className={`text-sm font-medium ${isDark ? "text-slate-400" : "text-slate-500"}`}>Total Study Time</p>
-              <h3 className={`text-3xl font-bold mt-1 ${isDark ? "text-white" : "text-slate-900"}`}>{profile?.study_time || "0"} hours</h3>
-            </div>
-          </div>
-
-          {/* Card 2 */}
-          <div className={`p-6 rounded-2xl border transition-all duration-300 space-y-4 ${
-            isDark ? "bg-slate-900 border-slate-800 hover:border-violet-500/30" : "bg-white border-slate-200 hover:border-violet-500/30 shadow-sm"
-          }`}>
-            <div className="h-12 w-12 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400">
-              <Flame className="h-6 w-6" />
-            </div>
-            <div>
-              <p className={`text-sm font-medium ${isDark ? "text-slate-400" : "text-slate-500"}`}>Daily Streak</p>
-              <h3 className={`text-3xl font-bold mt-1 ${isDark ? "text-white" : "text-slate-900"}`}>{profile?.streak || "0"} Days</h3>
-            </div>
-          </div>
-
-          {/* Card 3 */}
-          <div className={`p-6 rounded-2xl border transition-all duration-300 space-y-4 sm:col-span-2 lg:col-span-1 ${
-            isDark ? "bg-slate-900 border-slate-800 hover:border-emerald-500/30" : "bg-white border-slate-200 hover:border-emerald-500/30 shadow-sm"
-          }`}>
-            <div className="h-12 w-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-              <Award className="h-6 w-6" />
-            </div>
-            <div>
-              <p className={`text-sm font-medium ${isDark ? "text-slate-400" : "text-slate-500"}`}>Completed Modules</p>
-              <h3 className={`text-3xl font-bold mt-1 ${isDark ? "text-white" : "text-slate-900"}`}>{profile?.completed_modules || "0"} Tasks</h3>
-            </div>
-          </div>
-        </div>
-
-        {/* Dynamic Features Workspace Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          
-          {/* Focus Stopwatch Timer */}
-          <div className={`p-6 rounded-2xl border space-y-6 flex flex-col justify-between ${isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200 shadow-sm"}`}>
-            <div>
-              <h2 className={`text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Focus Session Timer</h2>
-              <p className={`text-sm mt-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>Track your active deep work.</p>
-            </div>
-            <div className="py-8 text-center">
-              <div className={`text-6xl font-black font-mono tracking-wider transition-all duration-300 ${
-                isTiming 
-                  ? "text-indigo-500 drop-shadow-[0_0_15px_rgba(99,102,241,0.3)] animate-pulse" 
-                  : (isDark ? "text-slate-600" : "text-slate-300")
-              }`}>
-                {formatTime(secondsElapsed)}
-              </div>
-            </div>
-            <button
-              onClick={toggleTimer}
-              className={`w-full py-4 rounded-xl font-semibold flex items-center justify-center gap-3 transition-all duration-200 border shadow-md ${
-                isTiming ? "bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-600 hover:text-white" : "bg-indigo-600 border-indigo-500 text-white hover:bg-indigo-500"
-              }`}
-            >
-              {isTiming ? <><Square className="h-5 w-5 fill-current" /> Stop & Save Focus</> : <><Play className="h-5 w-5 fill-current" /> Start Focus Session</>}
-            </button>
-          </div>
-
-          {/* Interactive Module Task Manager */}
-          <div className={`p-6 rounded-2xl border space-y-6 flex flex-col justify-between ${isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200 shadow-sm"}`}>
-            <div>
-              <h2 className={`text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Active Daily Targets</h2>
-            </div>
-            <div className="space-y-3 max-h-[180px] overflow-y-auto pr-1 flex-grow">
-              {tasks.length === 0 ? (
-                <div className={`h-full flex items-center justify-center text-center text-sm py-8 select-none ${isDark ? "text-slate-600" : "text-slate-400"}`}>
-                  No active targets. Add a milestone below to begin!
+              <form onSubmit={handleOnboardingSubmit} className="space-y-4">
+                {/* Username Input */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5"><User className="h-3.5 w-3.5" /> Chosen Username</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.username}
+                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                    placeholder="e.g., alex_codes"
+                    className={`w-full rounded-xl px-4 py-3 text-sm outline-none border ${isDark ? "bg-slate-950 border-slate-800 text-slate-100" : "bg-slate-50 border-slate-200 text-slate-800"}`}
+                  />
                 </div>
-              ) : (
-                tasks.map((task) => (
-                  <div key={task.id} className={`flex items-center justify-between p-3 rounded-xl border ${isDark ? "bg-slate-950 border-slate-800" : "bg-slate-50 border-slate-200"}`}>
-                    <span className={isDark ? "text-slate-300 text-sm font-medium" : "text-slate-700 text-sm font-medium"}>{task.text}</span>
-                    <button onClick={() => completeTask(task.id)} className="text-slate-400 hover:text-emerald-500 p-1 transition-colors">
-                      <CheckCircle className="h-5 w-5" />
-                    </button>
+
+                {/* Preparation Target Input */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5"><Target className="h-3.5 w-3.5" /> What are you preparing for?</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.preparation_for}
+                    onChange={(e) => setFormData({ ...formData, preparation_for: e.target.value })}
+                    placeholder="e.g., GATE Exam, University Engineering, Physics Lab"
+                    className={`w-full rounded-xl px-4 py-3 text-sm outline-none border ${isDark ? "bg-slate-950 border-slate-800 text-slate-100" : "bg-slate-50 border-slate-200 text-slate-800"}`}
+                  />
+                </div>
+
+                {/* Location Layout Grid */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> State</label>
+                    <input
+                      type="text"
+                      value={formData.state}
+                      onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                      placeholder="e.g., MH, DL, KA"
+                      className={`w-full rounded-xl px-4 py-3 text-sm outline-none border ${isDark ? "bg-slate-950 border-slate-800 text-slate-100" : "bg-slate-50 border-slate-200 text-slate-800"}`}
+                    />
                   </div>
-                ))
-              )}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> City</label>
+                    <input
+                      type="text"
+                      value={formData.city}
+                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                      placeholder="e.g., Mumbai, Pune"
+                      className={`w-full rounded-xl px-4 py-3 text-sm outline-none border ${isDark ? "bg-slate-950 border-slate-800 text-slate-100" : "bg-slate-50 border-slate-200 text-slate-800"}`}
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={formSubmitting}
+                  className="w-full mt-2 py-3.5 bg-indigo-600 disabled:opacity-50 hover:bg-indigo-500 rounded-xl text-sm font-semibold text-white shadow-md shadow-indigo-600/10 transition-colors"
+                >
+                  {formSubmitting ? "Locking Profile..." : "Unlock Dashboard"}
+                </button>
+              </form>
             </div>
-            <form onSubmit={addTask} className="flex items-center gap-2 mt-auto">
-              <input
-                type="text"
-                value={newTaskInput}
-                onChange={(e) => setNewTaskInput(e.target.value)}
-                placeholder="e.g., Review Buck Converter Formulas..."
-                className={`flex-1 rounded-xl px-4 py-3 text-sm outline-none border transition-all ${
-                  isDark 
-                    ? "bg-slate-950 border-slate-800 text-slate-200 focus:border-indigo-500" 
-                    : "bg-slate-50 border-slate-200 text-slate-800 focus:border-indigo-500"
-                }`}
-              />
-              <button type="submit" className="p-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-white shadow-md">
-                <Plus className="h-5 w-5" />
-              </button>
-            </form>
           </div>
-        </div>
+        ) : (
+          /* STANDARD DASHBOARD VIEW SECTION */
+          <>
+            {/* Welcome Block Header with Meta Tags */}
+            <div className={`relative rounded-2xl overflow-hidden border p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 transition-colors ${
+              isDark ? "bg-gradient-to-r from-indigo-900/40 via-slate-900 to-slate-900 border-slate-800" : "bg-white border-slate-200 shadow-sm"
+            }`}>
+              <div className="space-y-2 text-center md:text-left">
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
+                  <span className="px-3 py-1 text-xs font-semibold rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                    Level {profile?.level || "1"} Student
+                  </span>
+                  <span className="px-3 py-1 text-xs font-semibold rounded-full bg-violet-500/10 text-violet-400 border border-violet-500/20">
+                    Target: {profile?.preparation_for}
+                  </span>
+                </div>
+                <h1 className={`text-3xl md:text-4xl font-extrabold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
+                  Welcome, <span className="text-indigo-500">@{profile?.username}</span>!
+                </h1>
+                <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                  Location: <span className="font-semibold">{profile?.city || "Unknown"}, {profile?.state || "IN"}</span>
+                </p>
+              </div>
+            </div>
+
+            {/* QUICK LAUNCH HOTBAR CARDS */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <button 
+                onClick={() => window.location.href = "/quiz"}
+                className={`p-4 rounded-xl border text-left flex items-center justify-between group transition-all duration-200 ${
+                  isDark ? "border-slate-800 bg-slate-900/50 hover:bg-slate-900 hover:border-indigo-500/30" : "border-slate-200 bg-white hover:bg-slate-50 hover:border-indigo-500/30 shadow-sm"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-lg bg-indigo-500/10 text-indigo-500 group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                    <HelpCircle className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h4 className={`text-sm font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Launch Quiz Hub</h4>
+                    <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>Test engineering & physics knowledge to level up.</p>
+                  </div>
+                </div>
+                <span className="text-slate-400 group-hover:text-indigo-500 transition-colors font-bold text-lg">→</span>
+              </button>
+
+              <button 
+                onClick={() => window.location.href = "/formulas"}
+                className={`p-4 rounded-xl border text-left flex items-center justify-between group transition-all duration-200 ${
+                  isDark ? "border-slate-800 bg-slate-900/50 hover:bg-slate-900 hover:border-violet-500/30" : "border-slate-200 bg-white hover:bg-slate-50 hover:border-violet-500/30 shadow-sm"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-lg bg-violet-500/10 text-violet-400 group-hover:bg-violet-600 group-hover:text-white transition-all">
+                    <BookOpen className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h4 className={`text-sm font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Formula Cheat Sheets</h4>
+                    <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>Review hidden or active mathematical formulas.</p>
+                  </div>
+                </div>
+                <span className="text-slate-400 group-hover:text-violet-400 transition-colors font-bold text-lg">→</span>
+              </button>
+            </div>
+
+            {/* Live Metrics Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className={`p-6 rounded-2xl border transition-all duration-300 space-y-4 ${
+                isDark ? "bg-slate-900 border-slate-800 hover:border-indigo-500/30" : "bg-white border-slate-200 hover:border-indigo-500/30 shadow-sm"
+              }`}>
+                <div className="h-12 w-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-500">
+                  <Activity className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className={`text-sm font-medium ${isDark ? "text-slate-400" : "text-slate-500"}`}>Total Study Time</p>
+                  <h3 className={`text-3xl font-bold mt-1 ${isDark ? "text-white" : "text-slate-900"}`}>{profile?.study_time || "0"} hours</h3>
+                </div>
+              </div>
+
+              <div className={`p-6 rounded-2xl border transition-all duration-300 space-y-4 ${
+                isDark ? "bg-slate-900 border-slate-800 hover:border-violet-500/30" : "bg-white border-slate-200 hover:border-violet-500/30 shadow-sm"
+              }`}>
+                <div className="h-12 w-12 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400">
+                  <Flame className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className={`text-sm font-medium ${isDark ? "text-slate-400" : "text-slate-500"}`}>Daily Streak</p>
+                  <h3 className={`text-3xl font-bold mt-1 ${isDark ? "text-white" : "text-slate-900"}`}>{profile?.streak || "0"} Days</h3>
+                </div>
+              </div>
+
+              <div className={`p-6 rounded-2xl border transition-all duration-300 space-y-4 sm:col-span-2 lg:col-span-1 ${
+                isDark ? "bg-slate-900 border-slate-800 hover:border-emerald-500/30" : "bg-white border-slate-200 hover:border-emerald-500/30 shadow-sm"
+              }`}>
+                <div className="h-12 w-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                  <Award className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className={`text-sm font-medium ${isDark ? "text-slate-400" : "text-slate-500"}`}>Completed Modules</p>
+                  <h3 className={`text-3xl font-bold mt-1 ${isDark ? "text-white" : "text-slate-900"}`}>{profile?.completed_modules || "0"} Tasks</h3>
+                </div>
+              </div>
+            </div>
+
+            {/* Workspaces Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Focus Stopwatch Timer */}
+              <div className={`p-6 rounded-2xl border space-y-6 flex flex-col justify-between ${isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200 shadow-sm"}`}>
+                <div>
+                  <h2 className={`text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Focus Session Timer</h2>
+                  <p className={`text-sm mt-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>Track your active deep work.</p>
+                </div>
+                <div className="py-8 text-center">
+                  <div className={`text-6xl font-black font-mono tracking-wider transition-all duration-300 ${
+                    isTiming ? "text-indigo-500 drop-shadow-[0_0_15px_rgba(99,102,241,0.3)] animate-pulse" : (isDark ? "text-slate-600" : "text-slate-300")
+                  }`}>
+                    {formatTime(secondsElapsed)}
+                  </div>
+                </div>
+                <button
+                  onClick={toggleTimer}
+                  className={`w-full py-4 rounded-xl font-semibold flex items-center justify-center gap-3 transition-all duration-200 border shadow-md ${
+                    isTiming ? "bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-600 hover:text-white" : "bg-indigo-600 border-indigo-500 text-white hover:bg-indigo-500"
+                  }`}
+                >
+                  {isTiming ? <><Square className="h-5 w-5 fill-current" /> Stop & Save Focus</> : <><Play className="h-5 w-5 fill-current" /> Start Focus Session</>}
+                </button>
+              </div>
+
+              {/* Interactive Task Manager */}
+              <div className={`p-6 rounded-2xl border space-y-6 flex flex-col justify-between ${isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200 shadow-sm"}`}>
+                <div>
+                  <h2 className={`text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>Active Daily Targets</h2>
+                </div>
+                <div className="space-y-3 max-h-[180px] overflow-y-auto pr-1 flex-grow">
+                  {tasks.length === 0 ? (
+                    <div className={`h-full flex items-center justify-center text-center text-sm py-8 select-none ${isDark ? "text-slate-600" : "text-slate-400"}`}>
+                      No active targets. Add a milestone below to begin!
+                    </div>
+                  ) : (
+                    tasks.map((task) => (
+                      <div key={task.id} className={`flex items-center justify-between p-3 rounded-xl border ${isDark ? "bg-slate-950 border-slate-800" : "bg-slate-50 border-slate-200"}`}>
+                        <span className={isDark ? "text-slate-300 text-sm font-medium" : "text-slate-700 text-sm font-medium"}>{task.text}</span>
+                        <button onClick={() => completeTask(task.id)} className="text-slate-400 hover:text-emerald-500 p-1 transition-colors">
+                          <CheckCircle className="h-5 w-5" />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <form onSubmit={addTask} className="flex items-center gap-2 mt-auto">
+                  <input
+                    type="text"
+                    value={newTaskInput}
+                    onChange={(e) => setNewTaskInput(e.target.value)}
+                    placeholder="e.g., Review Buck Converter Formulas..."
+                    className={`flex-1 rounded-xl px-4 py-3 text-sm outline-none border transition-all ${
+                      isDark ? "bg-slate-950 border-slate-800 text-slate-200 focus:border-indigo-500" : "bg-slate-50 border-slate-200 text-slate-800 focus:border-indigo-500"
+                    }`}
+                  />
+                  <button type="submit" className="p-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-white shadow-md">
+                    <Plus className="h-5 w-5" />
+                  </button>
+                </form>
+              </div>
+            </div>
+          </>
+        )}
 
       </main>
     </div>
